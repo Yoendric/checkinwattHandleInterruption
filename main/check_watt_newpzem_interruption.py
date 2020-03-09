@@ -523,12 +523,12 @@ def main():
   uart = UART(2, baudrate=9600, tx=18,rx=19)# init with given baudrate
   uart.init(9600, bits=8, parity=None, stop=1) # init with given parameters
   # Azure IoT-hub settings
-  hostname = "CheckinWattsHub.azure-devices.net"
+  hostname = "checkinwattsiothub.azure-devices.net"
   device_id = ubinascii.hexlify(network.WLAN().config('mac'),':').decode()
   device_id = device_id.upper()
   uri = "{hostname}/devices/{device_id}".format(hostname=hostname, device_id=device_id)
   username_fmt = "{}/{}/?api-version=2018-06-30"
-  key="JJvuIY3CQEycEENqOSZrp1vdfnEWKWNrmnHjPgpYLyY="
+   key="XxXK7Pun5XQa/NqUsGBmXBKI4euLUcU/72bjxuPr+jE="
   username = username_fmt.format(hostname, device_id)
   version = "01000105"
   no_comunication_sensor=["FFF","FFFFF","","FFFFF","","FF"]
