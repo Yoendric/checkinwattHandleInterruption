@@ -14,6 +14,7 @@ try:
   import usocket as socket
 except:
   import socket
+from main.ota_updater import OTAUpdater
   
 INITIAL_MODBUS = 0xFFFF
 INITIAL_DF1 = 0x0000
@@ -497,10 +498,25 @@ def Read_PZEM(uart,f,seg,address):
     fout=json_format(seg,f,measurent)
   return fout
  
+ def download_and_install_update_if_available(url,ssid,password):
+     o = OTAUpdater(url)
+     o.download_and_install_update_if_available(ssid,password)
+
+def check_time_update_github(last_update):
+  next_update = last_update+24*3600
+  if next_update < time.mktime(time.localtime()):
+    print("Hora de revisar actualizacion")
+    return True
+  else:
+    return False
 ##############################################################
 ##### MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN ######
 ##############################################################
 def main():
+  global time_last_update   #variable important to OTA time update
+  time_last_update = 0
+  url='https://github.com/Yoendric/checkinwattHandleInterruption'   #Github repository project
+  o = OTAUpdater(url)
   led = Pin(14, Pin.OUT)
   pir = Pin(23, Pin.IN)
   pir.irq(trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING, handler=handle_interrupt)
@@ -531,9 +547,16 @@ def main():
       print('Modo cliente')
       if (ssid and passw):
         Connect_wifi_client(ssid,passw)
+        download_and_install_update_if_available(url,ssid,passw)
         Adjustment_Time_RTC(-6)
         password = Sas_token(uri,key)
         while (not switch_ap):
+          if check_time_update_github(time_last_update):
+            try:
+              o.check_for_update_to_install_during_next_reboot()
+              time_last_update=time.mktime(time.localtime())
+            except:
+               print("NO SE PUEDE CONECTAR PARA VER SI HAY ACTUALIZACION")
           f0 = ""
           f1 = f0
           MSG_TXT = '{{"ID": "{version}","F0": "{f0}","F1": "{f1}"}}'
@@ -551,4 +574,3 @@ def main():
             iot_hub_mqttsend(device_id, hostname,username,password,msg_txt_formatted)
       else:
         sleep(1)
-
