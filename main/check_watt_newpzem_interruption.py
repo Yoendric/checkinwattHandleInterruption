@@ -442,7 +442,7 @@ def json_format(seg,character,measurent):
   
 def send_mail(letter):
   try:
-    import main.umail as umail
+    import umail
   except:
     print("No se pudo importar umail")
     return
@@ -510,10 +510,11 @@ def check_time_update_github(last_update):
     return True
   else:
     return False
+    
 ##############################################################
 ##### MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN ######
 ##############################################################
-def main():
+def main(version):
   global time_last_update   #variable important to OTA time update
   global switch_ap
   time_last_update = 0
@@ -534,7 +535,6 @@ def main():
   username_fmt = "{}/{}/?api-version=2018-06-30"
   key="XxXK7Pun5XQa/NqUsGBmXBKI4euLUcU/72bjxuPr+jE="
   username = username_fmt.format(hostname, device_id)
-  version = "01000105"
   switch_ap = False
   ssid,passw=Get_Client_Wifi_Parameters()
   if pir.value() == 1:
