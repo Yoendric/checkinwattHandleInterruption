@@ -483,6 +483,7 @@ def Blinky_LED(led):
   sleep(0.1)
 
 def Read_PZEM(uart,f,seg,address):
+  no_comunication_sensor=["FFF","FFFFF","","FFFFF","","FF"]
   pzem='PZEM-004T-{add}'.format(add=zfill(str(address),2))
   data = read_measurement('\x01')
   uart.write(data)
@@ -498,9 +499,9 @@ def Read_PZEM(uart,f,seg,address):
     fout=json_format(seg,f,measurent)
   return fout
  
- def download_and_install_update_if_available(url,ssid,password):
-     o = OTAUpdater(url)
-     o.download_and_install_update_if_available(ssid,password)
+def download_and_install_update_if_available(url,ssid,password):
+  o = OTAUpdater(url)
+  o.download_and_install_update_if_available(ssid,password)
 
 def check_time_update_github(last_update):
   next_update = last_update+24*3600
@@ -514,13 +515,16 @@ def check_time_update_github(last_update):
 ##############################################################
 def main():
   global time_last_update   #variable important to OTA time update
+  global switch_ap
   time_last_update = 0
   url='https://github.com/Yoendric/checkinwattHandleInterruption'   #Github repository project
   o = OTAUpdater(url)
   led = Pin(14, Pin.OUT)
-  pir = Pin(23, Pin.IN)
+  led.value(1)
+  wifi = Pin(4, Pin.OUT)
+  pir = Pin(25, Pin.IN)
   pir.irq(trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING, handler=handle_interrupt)
-  uart = UART(2, baudrate=9600, tx=18,rx=19)# init with given baudrate
+  uart = UART(2, baudrate=9600, tx=26,rx=27)# init with given baudrate
   uart.init(9600, bits=8, parity=None, stop=1) # init with given parameters
   # Azure IoT-hub settings
   hostname = "checkinwattsiothub.azure-devices.net"
@@ -528,10 +532,9 @@ def main():
   device_id = device_id.upper()
   uri = "{hostname}/devices/{device_id}".format(hostname=hostname, device_id=device_id)
   username_fmt = "{}/{}/?api-version=2018-06-30"
-   key="XxXK7Pun5XQa/NqUsGBmXBKI4euLUcU/72bjxuPr+jE="
+  key="XxXK7Pun5XQa/NqUsGBmXBKI4euLUcU/72bjxuPr+jE="
   username = username_fmt.format(hostname, device_id)
   version = "01000105"
-  no_comunication_sensor=["FFF","FFFFF","","FFFFF","","FF"]
   switch_ap = False
   ssid,passw=Get_Client_Wifi_Parameters()
   if pir.value() == 1:
@@ -539,12 +542,14 @@ def main():
   while True:
     if switch_ap:
       print('Interrupt AP detected!')
+      wifi.value(0)
       led.value(1)
       ssid , passw = ap_mode()
       while switch_ap:
-        Blinky_LED(led)
+        Blinky_LED(wifi)
     else:
       print('Modo cliente')
+      wifi.value(1)
       if (ssid and passw):
         Connect_wifi_client(ssid,passw)
         download_and_install_update_if_available(url,ssid,passw)
@@ -556,15 +561,15 @@ def main():
               o.check_for_update_to_install_during_next_reboot()
               time_last_update=time.mktime(time.localtime())
             except:
-               print("NO SE PUEDE CONECTAR PARA VER SI HAY ACTUALIZACION")
+              print("NO SE PUEDE CONECTAR PARA VER SI HAY ACTUALIZACION")
           f0 = ""
           f1 = f0
           MSG_TXT = '{{"ID": "{version}","F0": "{f0}","F1": "{f1}"}}'
           seg = 1
           while (seg <= 60) and (not switch_ap):
             led.value(seg%2)
-            f0=read_PZEM(uart,f0,seg,1) 
-            f1=read_PZEM(uart,f1,seg,1)
+            f0=Read_PZEM(uart,f0,seg,1) 
+            f1=Read_PZEM(uart,f1,seg,1)
             sleep(0.8)   
             seg = seg + 1
           if (not switch_ap):
