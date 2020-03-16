@@ -442,7 +442,7 @@ def json_format(seg,character,measurent):
   
 def send_mail(letter):
   try:
-    import umail
+    import main.umail as umail
   except:
     print("No se pudo importar umail")
     return
