@@ -268,7 +268,7 @@ def zfill(s, width):
         return ("0" * (width - len(s))) + s
     else:
         return s
-        
+
 def rev(s):
     return "" if not(s) else rev(s[1::])+s[0]
 
@@ -286,7 +286,8 @@ def decoded_measurement(data):
             metre[i] = zfill(hex(metre[i]).split('x')[-1],5)
         if i == 2 :
             dt = data[8:10]+data[6:8]
-            metre[i] = unpack('>I',dt)[0]*0.1
+            metre[i] = unpack('>I',dt)[0]
+            metre[i] = zfill(hex(metre[i]).split('x')[-1],5)
         if i == 3 :
             dt = data[12:14]+data[10:12]
             metre[i] = unpack('>I',dt)[0]
@@ -294,6 +295,7 @@ def decoded_measurement(data):
         if i == 4 :
             dt = data[14:16]
             metre[i] = unpack('>H',dt)[0]*0.1
+            metre[i] = zfill(hex(metre[i]).split('x')[-1],3)
         if i == 5 :
             dt = data[16:18]
             metre[i] = unpack('>H',dt)[0]
@@ -431,13 +433,11 @@ def iot_hub_mqttsend(device_id, hostname,username,password,msg):
       print("No se pudo enviar el correo")    
     sleep(5)
 
-def json_format(seg,character,measurent):
-  if (seg == 1):
-    character +=  measurent[0]+measurent[1]
-  elif (seg == 60):
-    character +=  measurent[1]+measurent[3]+measurent[5]
-  else:
-    character += measurent[1]
+def json_format(seg,character,measurent,struct_message):
+  for i in range(len(struct_message)):
+    if struct_message[i] != 0:
+      if seg%struct_message[i] == 0:
+        character += measurent[i]
   return character
   
 def send_mail(letter):
@@ -482,21 +482,23 @@ def Blinky_LED(led):
   led.value(1)
   sleep(0.1)
 
-def Read_PZEM(uart,f,seg,address):
-  no_comunication_sensor=["FFF","FFFFF","","FFFFF","","FF"]
+def Read_PZEM(uart,f,seg,struct_message,address):
+  no_comunication_sensor=["FFF","FFFFF","FFFFF","FFFFF","FFF","FF"]
   pzem='PZEM-004T-{add}'.format(add=zfill(str(address),2))
-  data = read_measurement('\x01')
-  uart.write(data)
-  data = ''
-  sleep(0.1)
-  data = uart.read()
+  data = read_measurement(pack("B", address).decode())
+  #########Interfaces###################################
+  uart.write(data)             #########################
+  data = ''                    #########################
+  sleep(0.1)                   #########################
+  data = uart.read()           #########################
+  ######################################################
   if not data:
     print('No comunicacion con '+pzem+': Segundo: '+str(seg))
-    fout=json_format(seg,f,no_comunication_sensor)
+    fout=json_format(seg,f,no_comunication_sensor,struct_message)
   else:  
     print(pzem+': Segundo: '+str(seg))     
     measurent= decoded_measurement(data[3:-2])
-    fout=json_format(seg,f,measurent)
+    fout=json_format(seg,f,measurent,struct_message)
   return fout
  
 def download_and_install_update_if_available(url,ssid,password):
@@ -510,7 +512,15 @@ def check_time_update_github(last_update):
     return True
   else:
     return False
-    
+
+def Create_struct_message(struct_message,time_click):
+  struct_message = struct_message.split('.')
+  for i in range(len(struct_message)):
+    if int(struct_message[i]) != 0:
+      struct_message[i] = round(time_click/int(struct_message[i]))
+    else:
+      struct_message[i] = 0
+  return struct_message
 ##############################################################
 ##### MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN ######
 ##############################################################
@@ -518,6 +528,10 @@ def main(version):
   global time_last_update   #variable important to OTA time update
   global switch_ap
   time_last_update = 0
+  time_tick_send_message = 60
+  time_sleep_across_measure = 0.8
+  struct_message = '6.60.6.1.1.1' ####"V.I.P.E.F.FP"
+  struct_message = Create_struct_message(struct_message,time_tick_send_message)
   url='https://github.com/Yoendric/checkinwattHandleInterruption'   #Github repository project
   o = OTAUpdater(url)
   led = Pin(14, Pin.OUT)
@@ -566,16 +580,16 @@ def main(version):
           f1 = f0
           MSG_TXT = '{{"ID": "{version}","F0": "{f0}","F1": "{f1}"}}'
           seg = 1
-          while (seg <= 60) and (not switch_ap):
+          while (seg <= time_tick_send_message) and (not switch_ap):
             led.value(seg%2)
-            f0=Read_PZEM(uart,f0,seg,1) 
-            f1=Read_PZEM(uart,f1,seg,1)
-            sleep(0.8)   
+            f0=Read_PZEM(uart,f0,seg,struct_message,1) 
+            f1=Read_PZEM(uart,f1,seg,struct_message,1)
+            sleep(time_sleep_across_measure)   
             seg = seg + 1
           if (not switch_ap):
             msg_txt_formatted = MSG_TXT.format(version=version, f0=f0,f1=f1) 
             print ("Message ready to ship to IoT Hub Azure") 
             print (msg_txt_formatted)
-            iot_hub_mqttsend(device_id, hostname,username,password,msg_txt_formatted)
+            #iot_hub_mqttsend(device_id, hostname,username,password,msg_txt_formatted)
       else:
         sleep(1)
