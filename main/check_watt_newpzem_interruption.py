@@ -524,7 +524,7 @@ def Create_struct_message(struct_message,time_click):
 ##############################################################
 ##### MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN ######
 ##############################################################
-def main(version):
+def main():
   global time_last_update   #variable important to OTA time update
   global switch_ap
   time_last_update = 0
